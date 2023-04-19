@@ -1,68 +1,80 @@
 from django.contrib.auth import get_user_model
-from django.contrib.auth.models import User
 from rest_framework import generics, permissions, status
+from rest_framework.authentication import SessionAuthentication, BasicAuthentication, TokenAuthentication
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 
-
 from .models import Product, Category, Order
-from .permissions import IsManagerOrReadOnly, IsAuthenticatedOrReadOnly, IsUnauthenticated
+from .permissions import IsManagerOrReadOnly, IsAuthorizedUser, IsManagerOrAdmin, IsReadOnly, IsAdminOrReadOnly, \
+    IsAdminOrReadOnlyProductDetail, IsAuthorizedUserProductDetail
 from .serializers import ProductDetailSerializer, CategoryDetailSerializer, ProductListSerializer, \
     ShoppingCartSerializer, OrderSerializer, UserSerializer
 
 
 # Категории
-
-
 class CategoryCreateView(generics.CreateAPIView):
-    queryset = Category.objects.all()
     serializer_class = CategoryDetailSerializer
-    permission_classes = [IsAuthenticatedOrReadOnly]
-
-    def perform_create(self, serializer):
-        serializer.save()
-
-
-class CategoryListView(generics.ListAPIView):
-    serializer_class = CategoryDetailSerializer
-    queryset = Category.objects.all()
     permission_classes = [IsManagerOrReadOnly]
+    authentication_classes = [SessionAuthentication, BasicAuthentication]
+
+    def post(self, request, *args, **kwargs):
+        return self.create(request, *args, **kwargs)
+
+
+class CategoryListView(generics.ListCreateAPIView):
+    queryset = Category.objects.all()
+    serializer_class = CategoryDetailSerializer
+    permission_classes = [IsManagerOrReadOnly]
+    authentication_classes = [SessionAuthentication, TokenAuthentication]
+
+    def post(self, request, *args, **kwargs):
+        return self.create(request, *args, **kwargs)
 
 
 class CategoryDetailView(generics.RetrieveUpdateDestroyAPIView):
-    serializer_class = CategoryDetailSerializer
     queryset = Category.objects.all()
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    serializer_class = CategoryDetailSerializer
+    permission_classes = [IsAdminOrReadOnlyProductDetail | IsAuthorizedUserProductDetail]
+
+    def get_permissions(self):
+        if self.request.method == 'GET':
+            return [IsAuthorizedUserProductDetail()]
+        return [IsAdminOrReadOnlyProductDetail()]
 
 
-# Товары
-
-
-class ProductCreateView(generics.CreateAPIView):
+class ProductListView(generics.ListCreateAPIView):
     queryset = Product.objects.all()
-    serializer_class = ProductDetailSerializer
-    permission_classes = [IsAuthenticatedOrReadOnly]
-
-    def perform_create(self, serializer):
-        serializer.save()
-
-
-class ProductListView(generics.ListAPIView):
     serializer_class = ProductListSerializer
-    queryset = Product.objects.all()
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    permission_classes = [IsManagerOrReadOnly | IsAdminOrReadOnly | IsReadOnly]
+
+    def post(self, request, *args, **kwargs):
+        return self.create(request, *args, **kwargs)
 
 
 class ProductDetailView(generics.RetrieveUpdateDestroyAPIView):
-    serializer_class = ProductDetailSerializer
     queryset = Product.objects.all()
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    serializer_class = ProductDetailSerializer
+    permission_classes = [IsAdminOrReadOnlyProductDetail | IsAuthorizedUserProductDetail]
+
+    def get_permissions(self):
+        if self.request.method == 'GET':
+            return [IsAuthorizedUserProductDetail()]
+        return [IsAdminOrReadOnlyProductDetail()]
+
+
+class ProductCreateView(generics.CreateAPIView):
+    serializer_class = ProductDetailSerializer
+    permission_classes = [IsManagerOrReadOnly]
+    authentication_classes = [SessionAuthentication, BasicAuthentication]
+
+    def post(self, request, *args, **kwargs):
+        return self.create(request, *args, **kwargs)
 
 
 class ShoppingCartAddItem(generics.CreateAPIView):
     serializer_class = ShoppingCartSerializer
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    permission_classes = [permissions.IsAuthenticated]
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)

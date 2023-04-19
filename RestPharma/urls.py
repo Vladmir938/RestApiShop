@@ -16,12 +16,11 @@ Including another URLconf
 from django.contrib import admin
 from django.contrib.auth import views
 from django.urls import path, include
-from shop.views import RegistrationView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('login/', views.LoginView.as_view(template_name='login.html'), name='login'),
     path('logout/', views.LogoutView.as_view(template_name='registration/logged_out.html'), name='logout'),
-    path('register/', RegistrationView.as_view()),
+    # path('register/', RegistrationView.as_view()),
     path('api/v1/shop/', include('shop.urls')),
 ]
